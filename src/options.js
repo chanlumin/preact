@@ -4,6 +4,7 @@
  */
 
 /**
+ * 用于扩展Preact功能 用来兼容官方React
  * Global options
  * @public
  * @typedef Options
@@ -17,6 +18,14 @@
  */
 
 /** @type {Options}  */
-const options = {};
+const options = {
+  // syncComponentUpdates 同步更新组件状态
+  // VNode Processes  扩展VNode属性
+  // afterMount 组件被插入DOM时的函数钩子 提供给框架或者内部工具使用
+  // afterUpdate 组件在DOM更新渲染时的函数钩子
+  // beforeUnmount 在组件被注销的之前 调用的函数钩子
+  // debounceRendering 去抖渲染
+  // Preact 事件派发函数钩子 返回值替代原生事件派发给事件监听器
+};
 
 export default options;

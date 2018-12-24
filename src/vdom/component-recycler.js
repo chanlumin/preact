@@ -9,6 +9,7 @@ export const recyclerComponents = [];
 
 
 /**
+ * Pure Function Componen PFC=> 纯函数组件
  * Create a component. Normalizes differences between PFC's and classful
  * Components.
  * @param {function} Ctor The constructor of the component to create

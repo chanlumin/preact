@@ -18,6 +18,7 @@ import { enqueueRender } from './render-queue';
  * }
  */
 export function Component(props, context) {
+	// _dirty为true的时候 Component 才能更新
 	this._dirty = true;
 
 	/**
@@ -53,17 +54,21 @@ extend(Component.prototype, {
 	 * 	updated
 	 */
 	setState(state, callback) {
+		// 记录上一个状态
 		if (!this.prevState) this.prevState = this.state;
+		// 立即合并state 处理state是函数的情况
 		this.state = extend(
 			extend({}, this.state),
 			typeof state === 'function' ? state(this.state, this.props) : state
 		);
+		// 渲染callback
 		if (callback) this._renderCallbacks.push(callback);
 		enqueueRender(this);
 	},
 
 
 	/**
+	 * 强制渲染函数
 	 * Immediately perform a synchronous re-render of the component.
 	 * @param {() => void} callback A function to be called after component is
 	 * 	re-rendered.

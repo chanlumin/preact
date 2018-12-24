@@ -28,6 +28,7 @@ import options from '../options';
 
 /**
  * Create an element with the given nodeName.
+ * 创建节点 SVG: document.createElementNS
  * @param {string} nodeName The DOM node to create
  * @param {boolean} [isSvg=false] If `true`, creates an element within the SVG
  *  namespace.
@@ -43,6 +44,7 @@ export function createNode(nodeName, isSvg) {
 
 /**
  * Remove a child node from its parent if attached.
+ * 删除当前节点
  * @param {Node} node The node to remove
  */
 export function removeNode(node) {
@@ -70,49 +72,67 @@ export function setAccessor(node, name, old, value, isSvg) {
 	if (name==='key') {
 		// ignore
 	}
+	// ref引用
 	else if (name==='ref') {
 		applyRef(old, null);
+		// 把node赋值给refName.current
+		// 或者refName(node) 可以通过函数返回node指点 let refName = (ref)=> ref 
 		applyRef(value, node);
 	}
+	// 设置node的className
 	else if (name==='class' && !isSvg) {
 		node.className = value || '';
 	}
 	else if (name==='style') {
+		// 通过cssText设置style
 		if (!value || typeof value==='string' || typeof old==='string') {
 			node.style.cssText = value || '';
 		}
 		if (value && typeof value==='object') {
 			if (typeof old!=='string') {
+				// 旧的style不在新的style对象中 去除style样式
 				for (let i in old) if (!(i in value)) node.style[i] = '';
 			}
+			// 设置新的属性
 			for (let i in value) {
 				node.style[i] = typeof value[i]==='number' && IS_NON_DIMENSIONAL.test(i)===false ? (value[i]+'px') : value[i];
 			}
 		}
 	}
+	// 设置dangerouslySetInnerHTML 直接赋值innerHTML
 	else if (name==='dangerouslySetInnerHTML') {
 		if (value) node.innerHTML = value.__html || '';
 	}
+	// 处理事件监听
 	else if (name[0]=='o' && name[1]=='n') {
+		// true为捕获 false为冒泡
+		// onClick和onClickCapture onClickCapture 此处的对比是个简单的方法
 		let useCapture = name !== (name=name.replace(/Capture$/, ''));
+		// 也可以用 name.indexOf('Capture')
 		name = name.toLowerCase().substring(2);
+		// 传入value的话就添加 否则就移除
 		if (value) {
 			if (!old) node.addEventListener(name, eventProxy, useCapture);
 		}
+		// 异步监听?
 		else {
 			node.removeEventListener(name, eventProxy, useCapture);
 		}
+		// 把监听事件存储在node._listeners对象中
 		(node._listeners || (node._listeners = {}))[name] = value;
 	}
+	// 处理node自由属性赋值
 	else if (name!=='list' && name!=='type' && !isSvg && name in node) {
 		// Attempt to set a DOM property to the given value.
 		// IE & FF throw for certain property-value combinations.
 		try {
 			node[name] = value==null ? '' : value;
 		} catch (e) { }
+		// 传入的value是null或者false的话 移除name属性
 		if ((value==null || value===false) && name!='spellcheck') node.removeAttribute(name);
 	}
 	else {
+		// 其他name属性
 		let ns = isSvg && (name !== (name = name.replace(/^xlink:?/, '')));
 		// spellcheck is treated differently than all other boolean values and
 		// should not be removed when the value is `false`. See:
