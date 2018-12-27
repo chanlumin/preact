@@ -8,21 +8,26 @@ import { applyRef } from '../util';
 import { removeNode } from '../dom/index';
 
 /**
+ * 
  * Queue of components that have been mounted and are awaiting componentDidMount
  * @type {Array<import('../component').Component>}
  */
 export const mounts = [];
 
+// 递归层次
 /** Diff recursion count, used to track the end of the diff cycle. */
 export let diffLevel = 0;
 
 /** Global flag indicating if the diff is currently within an SVG */
+// 当前元素师SVG
 let isSvgMode = false;
 
+// hydrating 可以理解为缓存
 /** Global flag indicating if the diff is performing hydration */
 let hydrating = false;
 
 /** Invoke queued componentDidMount lifecycle methods */
+// 执行ComponentDidMount和afterMount 回调函数钩子
 export function flushMounts() {
 	let c;
 	while ((c = mounts.shift())) {
@@ -42,26 +47,34 @@ export function flushMounts() {
  * @param {Element} parent ?
  * @param {boolean} componentRoot ?
  * @returns {import('../dom').PreactElement} The created/mutated element
+ *  * diff(undefined, vnode, {}, false, parent, false);
  * @private
  */
 export function diff(dom, vnode, context, mountAll, parent, componentRoot) {
 	// diffLevel having been 0 here indicates initial entry into the diff (not a subdiff)
+	// 初始化节点
 	if (!diffLevel++) {
+		// 检查是否在diff SVG
 		// when first starting the diff, check if we're diffing an SVG or within an SVG
 		isSvgMode = parent!=null && parent.ownerSVGElement!==undefined;
 
 		// hydration is indicated by the existing element to be diffed not having a prop cache
+		// 是否缓存数据
 		hydrating = dom!=null && !(ATTR_KEY in dom);
 	}
 
+	// 更新DOM返回新DOM
 	let ret = idiff(dom, vnode, context, mountAll, componentRoot);
 
 	// append the element if its a new parent
 	if (parent && ret.parentNode!==parent) parent.appendChild(ret);
 
 	// diffLevel being reduced to 0 means we're exiting the diff
+	// 结束diff时候
 	if (!--diffLevel) {
 		hydrating = false;
+		// 缓存标志设置为false
+		// 执行ComponentDidMount钩子
 		// invoke queued componentDidMount lifecycle methods
 		if (!componentRoot) flushMounts();
 	}
@@ -88,9 +101,11 @@ function idiff(dom, vnode, context, mountAll, componentRoot) {
 
 
 	// Fast case: Strings & Numbers create/update Text nodes.
+	// 叶子节点
 	if (typeof vnode==='string' || typeof vnode==='number') {
 
 		// update if it's already a Text node:
+		// IE6－8下，文本节点不能添加自定义属性=> dom._component总是为undefined
 		if (dom && dom.splitText!==undefined && dom.parentNode && (!dom._component || componentRoot)) {
 			/* istanbul ignore if */ /* Browser quirk that can't be covered: https://github.com/developit/preact/commit/fd4f21f5c45dfd75151bd27b4c217d8003aa5eb9 */
 			if (dom.nodeValue!=vnode) {
@@ -102,6 +117,7 @@ function idiff(dom, vnode, context, mountAll, componentRoot) {
 			out = document.createTextNode(vnode);
 			if (dom) {
 				if (dom.parentNode) dom.parentNode.replaceChild(out, dom);
+				// 回收老节点 存于内存中
 				recollectNodeTree(dom, true);
 			}
 		}
@@ -113,6 +129,7 @@ function idiff(dom, vnode, context, mountAll, componentRoot) {
 
 
 	// If the VNode represents a Component, perform a component diff:
+	//  如果vnodeName是一个组件的话
 	let vnodeName = vnode.nodeName;
 	if (typeof vnodeName==='function') {
 		return buildComponentFromVNode(dom, vnode, context, mountAll);
@@ -126,10 +143,12 @@ function idiff(dom, vnode, context, mountAll, componentRoot) {
 	// If there's no existing element or it's the wrong type, create a new one:
 	vnodeName = String(vnodeName);
 	if (!dom || !isNamedNode(dom, vnodeName)) {
+		// dom节点不存在 或者不是相同名字的节点
 		out = createNode(vnodeName, isSvgMode);
 
 		if (dom) {
 			// move children into the replacement node
+			// 转移真实DOM到虚拟DOM上
 			while (dom.firstChild) out.appendChild(dom.firstChild);
 
 			// if the previous Element was mounted into the DOM, replace it inline
@@ -142,27 +161,32 @@ function idiff(dom, vnode, context, mountAll, componentRoot) {
 
 
 	let fc = out.firstChild,
+		// 取回之前创建的DOM的propert的元素属性
 		props = out[ATTR_KEY],
 		vchildren = vnode.children;
 
+	// 将元素节点的property转为props
 	if (props==null) {
 		props = out[ATTR_KEY] = {};
 		for (let a=out.attributes, i=a.length; i--; ) props[a[i].name] = a[i].value;
 	}
 
 	// Optimization: fast-path for elements containing a single TextNode:
+	// 当前DOM是文本节点 虚拟DOM是string类型 直接赋值
 	if (!hydrating && vchildren && vchildren.length===1 && typeof vchildren[0]==='string' && fc!=null && fc.splitText!==undefined && fc.nextSibling==null) {
 		if (fc.nodeValue!=vchildren[0]) {
 			fc.nodeValue = vchildren[0];
 		}
 	}
 	// otherwise, if there are existing or new children, diff them:
+	// 更新孩子节点
 	else if (vchildren && vchildren.length || fc!=null) {
 		innerDiffNode(out, vchildren, context, mountAll, hydrating || props.dangerouslySetInnerHTML!=null);
 	}
 
 
 	// Apply attributes/props from VNode to the DOM Element:
+	// 更新真实DOM
 	diffAttributes(out, vnode.attributes, props);
 
 
@@ -204,6 +228,7 @@ function innerDiffNode(dom, vchildren, context, mountAll, isHydrating) {
 				keyedLen++;
 				keyed[key] = child;
 			}
+			// 不包含key属性的组件 放到children数组中去。
 			else if (props || (child.splitText!==undefined ? (isHydrating ? child.nodeValue.trim() : true) : isHydrating)) {
 				children[childrenLen++] = child;
 			}
@@ -215,7 +240,8 @@ function innerDiffNode(dom, vchildren, context, mountAll, isHydrating) {
 			vchild = vchildren[i];
 			child = null;
 
-			// attempt to find a node based on key matching
+			// attempt to find a node based on key matching、
+			// 从keyed数组中拿出真实DOM节点
 			let key = vchild.key;
 			if (key!=null) {
 				if (keyedLen && keyed[key]!==undefined) {
@@ -225,12 +251,14 @@ function innerDiffNode(dom, vchildren, context, mountAll, isHydrating) {
 				}
 			}
 			// attempt to pluck a node of the same type from the existing children
+			// 从children数组中拿出真实节点
 			else if (min<childrenLen) {
 				for (j=min; j<childrenLen; j++) {
 					if (children[j]!==undefined && isSameNodeType(c = children[j], vchild, isHydrating)) {
 						child = c;
 						children[j] = undefined;
 						if (j===childrenLen-1) childrenLen--;
+						// 每一趟都会加min => 直到j=== childrenLen - 1 
 						if (j===min) min++;
 						break;
 					}
@@ -238,6 +266,7 @@ function innerDiffNode(dom, vchildren, context, mountAll, isHydrating) {
 			}
 
 			// morph the matched/found/created DOM child to match vchild (deep)
+			// 更新属性
 			child = idiff(child, vchild, context, mountAll);
 
 			f = originalChildren[i];
@@ -286,7 +315,7 @@ export function recollectNodeTree(node, unmountOnly) {
 		// If the node's VNode had a ref function, invoke it with null here.
 		// (this is part of the React spec, and smart for unsetting references)
 		if (node[ATTR_KEY]!=null) applyRef(node[ATTR_KEY].ref, null);
-
+		// unmountOnly为true的话 只调用unmount函数钩子 否则 移除节点
 		if (unmountOnly===false || node[ATTR_KEY]==null) {
 			removeNode(node);
 		}
@@ -298,6 +327,7 @@ export function recollectNodeTree(node, unmountOnly) {
 
 /**
  * Recollect/unmount all children.
+ * 	回收孩子节点
  *	- we use .lastChild here because it causes less reflow than .firstChild
  *	- it's also cheaper than accessing the .childNodes Live NodeList
  */
@@ -323,12 +353,14 @@ function diffAttributes(dom, attrs, old) {
 
 	// remove attributes no longer present on the vnode by setting them to undefined
 	for (name in old) {
+		// 移除真实dom中对应的vnode中属性为空属性
 		if (!(attrs && attrs[name]!=null) && old[name]!=null) {
 			setAccessor(dom, name, old[name], old[name] = undefined, isSvgMode);
 		}
 	}
 
 	// add new & update changed attributes
+	// 添加更新属性
 	for (name in attrs) {
 		if (name!=='children' && name!=='innerHTML' && (!(name in old) || attrs[name]!==(name==='value' || name==='checked' ? dom[name] : old[name]))) {
 			setAccessor(dom, name, old[name], old[name] = attrs[name], isSvgMode);

@@ -7,9 +7,11 @@ import { extend } from '../util';
  * @param {import('../vnode').VNode} vnode Virtual DOM node to compare
  * @param {boolean} [hydrating=false] If true, ignores component constructors
  *  when comparing.
+ * 如果是true 就不比较constructor
  * @private
  */
 export function isSameNodeType(node, vnode, hydrating) {
+	// splitText是textNode才有的方法
 	if (typeof vnode==='string' || typeof vnode==='number') {
 		return node.splitText!==undefined;
 	}
@@ -24,6 +26,7 @@ export function isSameNodeType(node, vnode, hydrating) {
  * Check if an Element has a given nodeName, case-insensitively.
  * @param {import('../dom').PreactElement} node A DOM Element to inspect the name of.
  * @param {string} nodeName Unnormalized name to compare against.
+ * 通过比较normalizedNodeName 判断是否是同一类型的Node
  */
 export function isNamedNode(node, nodeName) {
 	return node.normalizedNodeName===nodeName || node.nodeName.toLowerCase()===nodeName.toLowerCase();
